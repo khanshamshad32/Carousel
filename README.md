@@ -8,12 +8,9 @@ Carousel - A React Native Library
 //  Copyright © 2018 Shamshad Khan. All rights reserved.
 //
 
-
-/* READ ME  
-
 Provide following properties as props to customise the carousel
 
-  => 'dataSource' type, -> [ { { url, color} }, ... ] 
+  => 'dataSource' type, -> [{ url, color}] 
       
     - 'url' is web url of image
     - 'color' is hex color code
@@ -29,7 +26,5 @@ Provide following properties as props to customise the carousel
 
 
   This library depeneds on Mathjs. Please use 'npm install mathjs'
-
-*/
 
 ![](carousel.gif)
