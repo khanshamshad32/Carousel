@@ -25,7 +25,8 @@ Provide following properties as props to customise the carousel
   This library depeneds on Mathjs. Please use 'npm install mathjs'
 
 
-
+#
+#
 # Demo
 
-![](carousel.gif)
+![](Carousel.gif)
