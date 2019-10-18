@@ -31,7 +31,7 @@ Provide following properties as props to customise the carousel
 
 import React, { Component } from 'react';
 import { View, Image, TouchableOpacity, TouchableNativeFeedback, TouchableWithoutFeedback ,PanResponder, Platform, ImageBackground } from 'react-native';
-import Math from 'mathjs';
+import Math from 'mathjs/dist/math.js';
 
 const duration = (Platform.OS == "ios")? 1:0;
 const elevationConstant = Math.cos(Math.pi/2.3);
