@@ -1,3 +1,4 @@
+/* eslint-disable react-native/no-inline-styles */
 //
 // Circular Carousel
 //
@@ -5,365 +6,279 @@
 //  Copyright © 2018 Shamshad Khan. All rights reserved.
 //
 
-
-/* READ ME  
+/* READ ME
 
 Provide following properties as props to customise the carousel
 
-  => 'dataSource' type, -> [ { { url, color} }, ... ] 
-      
+  => 'dataSource' type, -> [ { { url, color} }, ... ]
+
     - 'url' is web url of image
     - 'color' is hex color code
 
   => 'onItemPress', method is called when the front item is clicked,
      the clicked item index returned as result.
 
-  => 'style' -> to set carosel height, width etc default is 350, 200 respectively
+  => 'containerDim' -> to set carosel height, width etc default is 200, 350 respectively
 
-  => 'itemStyle' -> to set item height, width etc default is 100, 110 respectively
+  => 'itemDim' -> to set item height, width etc default is 11, 100 respectively
 
   => 'radius' -> to set rotation radius of carousel, default is 100
 
-
-  This library depeneds on Mathjs. Please use 'npm install mathjs'
-
 */
 
-import React, { Component } from 'react';
-import { View, Image, TouchableOpacity, TouchableNativeFeedback, TouchableWithoutFeedback ,PanResponder, Platform, ImageBackground } from 'react-native';
-import Math from 'mathjs';
+import React, { Component } from "react";
+import {
+	View,
+	Image,
+	TouchableNativeFeedback,
+	TouchableWithoutFeedback,
+	PanResponder,
+	Platform
+} from "react-native";
 
-const duration = (Platform.OS == "ios")? 1:0;
-const elevationConstant = Math.cos(Math.pi/2.3);
-const rotationRate = (Platform.OS == "ios")? 5 : 10;
-const penRotationRate = 1;
-
+const ROTATION_DURATION = Platform.OS === "ios" ? 1 : 5;
+const ELEVATION = Math.cos(Math.PI / 2.3);
+const ROTATION_RATE = Platform.OS === "ios" ? 5 : 5;
+const PAN_ROTATION_RATE = 0.08;
 
 export default class CircularCarousel extends Component {
+	constructor(props) {
+		super(props);
+		this.initState(props);
+		this.addPenGesture();
+	}
 
-  constructor(props){
-    super(props);
+	initState(props) {
+		let { dataSource } = props;
+		let _angle = 360 / dataSource.length;
 
-    this.state = {
-      dataSource : props.dataSource,
-      radius: props.radius || 100,
-      itemWidth: props.itemStyle.width || 100,
-      itemHeight: props.itemStyle.height|| 110,
-      containerWidth: props.style.width || 350,
-      containerHeight: props.style.height || 200
-    };
+		let arr = dataSource.map((item, index) => {
+			return {
+				frame: { x: 0, y: 0, w: 0, h: 0 },
+				angle: _angle * index,
+				opacity: 1,
+				zIndex: 100
+			};
+		});
 
-    this.setUpState();
-  }
+		this.state = {
+			items: arr,
+			sortedItems: []
+		};
+	}
 
-  componentWillMount() {
+	static getDerivedStateFromProps(props, state) {
+		let { itemDim, radius, dataSource } = props;
+		let marginY = itemDim.height / 3;
+		let n = dataSource.length;
 
-    this.setUpConstants();
-    this.arrangeItemsInCircle(0,0);
-    this.addPenGesture();
-  }
+		let middleItemAngle = (Math.floor(n / 2) * 360) / n;
+		let alpha = middleItemAngle * (Math.PI / 180); // Radian conversion
 
-  itemPressed(index) {
+		let min = radius * Math.cos(alpha) * ELEVATION + marginY;
+		let max = radius * ELEVATION + marginY;
+		return { ...state, marginY: { max, min } };
+	}
 
-    var activeItem = this.state.active;
-    if (index == activeItem) {
-      this.props.onItemPress(index);
-      return;
-    }
+	componentDidMount() {
+		this.rearrangeItems(0, 0);
+	}
 
-    this.rotateCarousel(index);
-  }
+	onItemPress(index) {
+		let { sortedItems } = this.state;
+		// sortedItems.map(item => console.log(item));
+		if (index === sortedItems[0].index) {
+			this.props.onItemPress(index);
+			return;
+		}
+		this.rotateCarousel(index);
+	}
 
-  renderItem(data, index) {
-    
-    var item = this.state.items[index];
-    
-    const imageStyle = { 
-      marginTop: item.Y, 
-      marginLeft: item.X,
-      zIndex: item.zIndex,
-      width: item.w,
-      height: item.h,
-      flex: 1,
-      justifyContent: 'center',
-      alignItems: 'center',
-      backgroundColor: data.color,
-      opacity: item.opacity,
-      position: 'absolute',
-      padding: 10,
-      borderRadius: 15,
-    };
+	renderItem(data, index) {
+		var item = this.state.items[index];
 
-    // For iOS
-    if (Platform.OS == 'ios') {
-      return (
-        <TouchableWithoutFeedback
-          onPress={() => this.itemPressed(index)} 
-          key= {index}
-          activeOpacity={1}
-          >
-          <View style={imageStyle}>
-            <Image
-              pointerEvents = 'none'
-              style={{ 
-                width: '100%',
-                height: '100%',
-              }}
-              source={{uri: data.url}}
-              resizeMode="contain"
-            />
-          </View>
-        </TouchableWithoutFeedback>   
-      );
-    }
+		const _itemStyle = {
+			...Styles.itemStyle,
+			marginTop: item.frame.y,
+			marginLeft: item.frame.x,
+			zIndex: item.zIndex,
+			width: item.frame.w,
+			height: item.frame.h,
+			backgroundColor: data.color,
+			opacity: item.opacity
+		};
 
-    // For android
-    return (
-      <TouchableNativeFeedback 
-        onPress={() => this.itemPressed(index)} 
-        key= {index}
-        >
-        <View style={imageStyle}>
-          <Image
-            pointerEvents = 'none'
+		let Feedback =
+			Platform.OS === "ios"
+				? TouchableWithoutFeedback
+				: TouchableNativeFeedback;
+
+		return (
+			<Feedback
+				onPress={() => this.onItemPress(index)}
+				key={index}
+				activeOpacity={1}>
+				<View style={_itemStyle}>
+					{/* <Image
+            pointerEvents="none"
             style={{
               width: '100%',
               height: '100%',
             }}
             source={{uri: data.url}}
             resizeMode="contain"
-          />
-        </View>
-      </TouchableNativeFeedback>  
-    );
-  }
+          /> */}
+				</View>
+			</Feedback>
+		);
+	}
 
-  renderTempView() {
-    return (
+	render() {
+		let { dataSource, style, containerDim } = this.props;
+		let sortedItems = this.sortItems();
+		let _style = {
+			...Styles.containerStyle,
+			...style,
+			...containerDim
+		};
+		return (
+			<View style={_style} {...this.panResponder.panHandlers}>
+				{sortedItems.map((data) =>
+					this.renderItem(dataSource[data.index], data.index)
+				)}
+			</View>
+		);
+	}
 
-      <TouchableOpacity
-      onPress={() => this.itemPressed(1)} >
+	//----------------------- L O G I C ---------------------------//
 
-      <View
-        style={{ width:100, height: 80, backgroundColor: 'grey' }}>
+	addPenGesture() {
+		this.panResponder = PanResponder.create({
+			onMoveShouldSetResponderCapture: () => true,
+			onMoveShouldSetPanResponder: (evt, gestureState) =>
+				// Since we want to handle presses on individual items as well
+				// Only start the pan responder when there is some movement
+				this.state.items.length > 1 && Math.abs(gestureState.dx) > 10,
 
-      </View>
+			onPanResponderMove: (evt, gestureState) => {
+				let angle = (gestureState.moveX - gestureState.x0) * PAN_ROTATION_RATE;
+				this.rearrangeItems(angle);
+			},
 
-      </TouchableOpacity>
+			onPanResponderRelease: (e, { vx, vy }) => {
+				this.rotateCarousel();
+			}
+		});
+	}
 
-    );
-  }
+	sortItems() {
+		let { items } = this.state;
 
-  render() {
-    var fItem = this.getFrontItem();
-    return (
-      <View 
-        style={[Styles.containerStyle,
-          this.props.style
-        ]}
-        {...this.panResponder.panHandlers}
-      >
+		let arr = items.map((item, index) => {
+			return {
+				index,
+				depth: item.frame.y
+			};
+		});
 
-      {/* { this.renderTempView()} */}
-      
-        {this.state.sortedItemsDepth.map((data, index) => 
-          this.renderItem(this.state.dataSource[data.index], data.index, (fItem == data.index))
-        )}
-      </View>
-    );
-  }
+		arr = arr.sort((a, b) => a.depth < b.depth);
+		this.state.sortedItems = arr;
+		return arr;
+	}
 
-  //----------------------- L O G I C ---------------------------//
-  
-  addPenGesture() {
+	rearrangeItems(toAngle) {
+		let { items } = this.state;
+		let { itemDim, containerDim, radius } = this.props;
+		let marginX = (containerDim.width - itemDim.width) / 2;
+		let marginY = itemDim.height / 3;
 
-    this.panResponder = PanResponder.create({
-      onMoveShouldSetResponderCapture: () => true,
-      onMoveShouldSetPanResponder: (evt, gestureState) => (
-        // Since we want to handle presses on individual items as well
-        // Only start the pan responder when there is some movement
-        ( this.state.items.length > 1 && Math.abs(gestureState.dx) > 10)
-      ),
-  
-      onPanResponderMove: (evt, gestureState) => {
-        
-        angle = (gestureState.moveX - gestureState.x0)*penRotationRate;
-        this.arrangeItemsInCircle(angle, this.state.active)
-      },
-  
-      onPanResponderRelease: (e, {vx, vy}) => {
+		items.forEach((item) => {
+			let _angle = (item.angle + toAngle + 360) % 360;
+			let alpha = _angle * (Math.PI / 180); // Radian conversion
+			let x = radius * Math.sin(alpha) + marginX;
+			let y = radius * Math.cos(alpha) * ELEVATION + marginY;
+			item.angle = _angle;
+			item.frame = { ...item.frame, x, y };
+			this.resetItemDimension(item);
+		});
 
-        this.rotateCarousel();
-      }
-    });
-  }
+		this.forceUpdate();
+	}
 
-  arrangeItemsInCircle(angle, item) {
+	rotateCarousel(index) {
+		let activeItem = index !== undefined ? index : this.getFrontItem();
+		let _angle = this.state.items[activeItem].angle;
+		_angle = _angle > 180 ? 360 - _angle : -_angle;
+		let sign = Math.sign(_angle);
+		console.log(_angle, index);
+		this.rotateItems(_angle, sign);
+	}
 
-    var r = this.state.radius;
-    var n = this.state.items.length;
-    var marginY = this.state.itemHeight/3;
-    var marginX = this.state.containerWidth/2 - this.state.itemWidth/2;
-    var i=0, k=0;
+	rotateItems(angleToRotate, sign) {
+		if (Math.abs(angleToRotate) <= ROTATION_RATE) {
+			this.rearrangeItems(angleToRotate);
+			return;
+		}
+		this.rearrangeItems(ROTATION_RATE * sign);
+		setTimeout(() => {
+			this.rotateItems((Math.abs(angleToRotate) - ROTATION_RATE) * sign, sign);
+		}, ROTATION_DURATION);
+	}
 
-    while(i<n) {
+	getFrontItem() {
+		let { items } = this.state;
+		let max = items[0].frame.y;
+		let frontIndex = 0;
 
-      var q = ( (i*360/n + angle )%360);
-      var alpha = q * (Math.PI / 180);
+		items.forEach(({ frame }, index) => {
+			if (max < frame.y) {
+				max = frame.y;
+				frontIndex = index;
+			}
+		});
+		return frontIndex;
+	}
 
-      var sinalpha = Math.sin(alpha);
-      var cosalpha = Math.cos(alpha);
-      var x = r * sinalpha + marginX;
-      var y = (r * cosalpha) * elevationConstant + marginY;
+	resetItemDimension(item) {
+		let { width, height } = this.props.itemDim;
+		let { frame } = item;
 
-      this.state.items[item].X = x;
-      this.state.items[item].Y = y;
+		let c = this.scalingCoefficient(item);
+		let w = width * c;
+		let h = height * c;
+		let x = frame.x + (width - w) / 2;
 
-      this.state.items[item].angle = q;
-      item = (item+1)%n;
-      i++;
-    }
-    this.rearrangeItemsDimension();
-    this.rearrangeItemsDepth();
-    this.setState({ active: item });
-  }
+		item.frame = { ...frame, w, h, x };
+		item.opacity = 0.5;
+		item.zIndex = 100 * c;
+	}
 
-  rearrangeItemsDepth()
-  {
-      var arr = [];
-      var n = this.state.items.length;
-
-      for (var i=0; i<n; i++) {
-        arr[i] = {
-          index: i,
-          depth: this.state.items[i].Y
-        };
-      }   
-
-      for (i=0; i<n; i++) 
-        for (j = 0; j < n-i-1; j++) 
-          if (arr[j].depth > arr[j+1].depth) {
-            var tmp = arr[j];
-            arr[j] = arr[j+1];
-            arr[j+1]=tmp;
-          }
-
-      this.state.sortedItemsDepth = arr;
-  }
-  
-  rotateCarousel(item) {
-
-    var activeItem = (item != undefined) ? item: this.getFrontItem() ;
-    var fAngle = this.state.frontItemAngle;
-    var cAngle = this.state.items[activeItem].angle;
-
-    var rotationAngle = (fAngle - cAngle + 360)%360;
-
-    if (rotationAngle > 180 )
-      rotationAngle = rotationAngle - 360;    // make angle negative
-  
-    var rotateItems = (i) => {
-
-      var ang = ( (rotationAngle < 0) ? -rotationRate : rotationRate ) * (i++);
-
-      if ( Math.abs(ang) > Math.abs(rotationAngle)) {
-        this.arrangeItemsInCircle(0,activeItem);
-        return;  
-      }
-      this.arrangeItemsInCircle(cAngle+ang,activeItem);
-
-      setTimeout(() => {
-        rotateItems(i);
-      }, duration );
-    };
-
-    rotateItems(1);
-  }
-
-  getFrontItem() {
-    var n = this.state.items.length;
-    var max = this.state.items[0].Y;
-    var frontIndex = 0;
-
-    for (var i=1; i<n; i++)
-      if (max < this.state.items[i].Y) {
-        max = this.state.items[i].Y;
-        frontIndex = i;
-      }
-
-    return frontIndex;
-  }
-
-  setUpConstants() {
-
-    this.arrangeItemsInCircle(0,0);
-
-    var n = this.state.items.length;
-    this.state.frontItemAngle = this.state.items[0].angle;
-    this.state.maxMarginX = this.state.items[0].X;
-    this.state.maxMarginY = this.state.items[0].Y;
-    this.state.minMarginX = this.state.items[n-1].X;  
-    this.state.minMarginY = this.state.items[n-1].Y;
-  }
-
-  rearrangeItemsDimension() {
-
-    for (var i=0; i<this.state.items.length; i++) {
-      var c = this.getItemScalingCoefficient(this.state.items[i]);
-
-      var newWidth = this.state.itemWidth * c;
-      var diff = this.state.itemWidth - newWidth;
-
-      var x = this.state.items[i].X;
-      this.state.items[i].X = x+diff/2;
-
-      this.state.items[i].w = newWidth;
-      this.state.items[i].h = this.state.itemHeight * c;
-      this.state.items[i].opacity = 0.5;
-      this.state.items[i].zIndex = 100*c;
-    }
-  }
-
-  getItemScalingCoefficient(item) {
-
-    var yMax = this.state.maxMarginY;
-    var y = item.Y;
-    var d = (yMax - this.state.minMarginY)*9;
-    if( d == 0) 
-      d = 1;
-    var c = Math.abs( (1 - ( yMax - y)/d)); 
-    return c;
-  }
-
-  setUpState() {
-    var arr = [];
-    for (var i=0; i<this.props.dataSource.length; i++)
-      arr[i] = { X: 0, Y: 0, angle: 0, w: 0, h: 0, opacity: 1, zIndex : 100 }
-
-    this.state = { ...this.state,
-      active: 0,
-      frontItemAngle: 290,
-      maxMarginX: 0,
-      maxMarginY: 0,
-      minMarginX: 0,
-      minMarginY: 0,
-      items: arr,
-      sortedItemsDepth: []
-    };
-  }
+	scalingCoefficient(item) {
+		let { y } = item.frame;
+		let { max, min } = this.state.marginY;
+		let d = (max - min || Number.MAX_VALUE) * 5;
+		return (y - min) / d + 0.8;
+	}
 }
 
+CircularCarousel.defaultProps = {
+	containerDim: { height: 200, width: 350 },
+	itemDim: { height: 110, width: 100 }
+};
+
 const Styles = {
-
-  activeStyle: {
-    // transform: 'scale(0.5)',
-  },
-  containerStyle: {
-    backgroundColor: 'transparent',
-    width: 300,
-    height:200,
-    overflow:'hidden'
-    
-  }
-
+	containerStyle: {
+		backgroundColor: "transparent",
+		width: 300,
+		height: 200,
+		overflow: "hidden"
+	},
+	itemStyle: {
+		flex: 1,
+		justifyContent: "center",
+		alignItems: "center",
+		position: "absolute",
+		padding: 10,
+		borderRadius: 15
+	}
 };
