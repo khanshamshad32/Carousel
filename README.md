@@ -21,9 +21,7 @@ Provide following properties as props to customise the carousel
 
   - 'radius' -> to set rotation radius of carousel, default is 100
 
-
-  This library depeneds on Mathjs. Please use 'npm install mathjs'
-
+The carousel can also update dynamically on updating props like radius, dataSource, containerDim, itemDim.
 
 #
 #
