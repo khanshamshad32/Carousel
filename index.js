@@ -1,29 +1,9 @@
 //
 // Circular Carousel
 //
-//  Created by Shamshad Khan on 20/09/18.
-//  Copyright © 2018 Shamshad Khan. All rights reserved.
+//  Created by Shamshad Khan on 14/03/2020.
+//  Copyright © 2020 Shamshad Khan. All rights reserved.
 //
-
-/* READ ME
-
-Provide following properties as props to customise the carousel
-
-  => 'dataSource' type, -> [ { { url, color} }, ... ]
-
-    - 'url' is web url of image
-    - 'color' is hex color code
-
-  => 'onItemPress', method is called when the front item is clicked,
-     the clicked item index returned as result.
-
-  => 'containerDim' -> to set carosel height, width etc default is 200, 350 respectively
-
-  => 'itemDim' -> to set item height, width etc default is 110, 100 respectively
-
-  => 'radius' -> to set rotation radius of carousel, default is 100
-
-*/
 
 import React, { Component } from "react";
 import {
