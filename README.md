@@ -15,9 +15,9 @@ Provide following properties as props to customise the carousel
   - 'onItemPress', method is called when the front item is clicked,
      the clicked item index returned as result.
 
-  - 'style' -> to set carosel height, width etc default is 350, 200 respectively
+  - 'containerDim' -> to set carosel height, width etc default is 350, 200 respectively
 
-  - 'itemStyle' -> to set item height, width etc default is 100, 110 respectively
+  - 'itemDim' -> to set item height, width etc default is 100, 110 respectively
 
   - 'radius' -> to set rotation radius of carousel, default is 100
 
