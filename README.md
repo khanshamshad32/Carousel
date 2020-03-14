@@ -1,9 +1,14 @@
-# Carousel - React Native Library
+# @khanshamshad32/carousel
+
+A react native library.
 
 
-Created by Shamshad Khan on 20/09/18.
-Copyright © 2018 Shamshad Khan. All rights reserved.
+## Install
 
+`$ npm install @khanshamshad32/carousel`
+
+
+### Usage
 
 Provide following properties as props to customise the carousel
 
