@@ -1,4 +1,3 @@
-/* eslint-disable react-native/no-inline-styles */
 //
 // Circular Carousel
 //
@@ -20,7 +19,7 @@ Provide following properties as props to customise the carousel
 
   => 'containerDim' -> to set carosel height, width etc default is 200, 350 respectively
 
-  => 'itemDim' -> to set item height, width etc default is 11, 100 respectively
+  => 'itemDim' -> to set item height, width etc default is 110, 100 respectively
 
   => 'radius' -> to set rotation radius of carousel, default is 100
 
@@ -39,54 +38,57 @@ import {
 const ROTATION_DURATION = Platform.OS === "ios" ? 1 : 5;
 const ELEVATION = Math.cos(Math.PI / 2.3);
 const ROTATION_RATE = Platform.OS === "ios" ? 5 : 5;
-const PAN_ROTATION_RATE = 0.08;
+const PAN_ROTATION_RATE = 0.05;
 
 export default class CircularCarousel extends Component {
 	constructor(props) {
 		super(props);
-		this.initState(props);
+		this.state = { items: [], containerDim: {}, itemDim: {}, radius: 0 };
 		this.addPenGesture();
 	}
 
-	initState(props) {
-		let { dataSource } = props;
-		let _angle = 360 / dataSource.length;
-
-		let arr = dataSource.map((item, index) => {
-			return {
-				frame: { x: 0, y: 0, w: 0, h: 0 },
-				angle: _angle * index,
-				opacity: 1,
-				zIndex: 100
-			};
-		});
-
-		this.state = {
-			items: arr,
-			sortedItems: []
-		};
-	}
-
 	static getDerivedStateFromProps(props, state) {
-		let { itemDim, radius, dataSource } = props;
-		let marginY = itemDim.height / 3;
-		let n = dataSource.length;
+		let { dataSource, itemDim, containerDim, radius } = props;
 
-		let middleItemAngle = (Math.floor(n / 2) * 360) / n;
-		let alpha = middleItemAngle * (Math.PI / 180); // Radian conversion
+		if (
+			dataSource.length !== state.items.length ||
+			state.containerDim !== containerDim ||
+			state.itemDim !== itemDim ||
+			state.radius !== radius
+		) {
+			let { items } = state;
 
-		let min = radius * Math.cos(alpha) * ELEVATION + marginY;
-		let max = radius * ELEVATION + marginY;
-		return { ...state, marginY: { max, min } };
-	}
+			if (dataSource.length !== state.items.length) {
+				let _angle = 360 / dataSource.length;
+				items = dataSource.map((item, index) => {
+					return { angle: _angle * index };
+				});
+			}
 
-	componentDidMount() {
-		this.rearrangeItems(0, 0);
+			let marginY = itemDim.height / 3;
+			let n = dataSource.length;
+			let middleItemAngle = (Math.floor(n / 2) * 360) / n;
+			let alpha = middleItemAngle * (Math.PI / 180); // Radian conversion
+			let min = radius * Math.cos(alpha) * ELEVATION + marginY;
+			let max = radius * ELEVATION + marginY;
+
+			let _state = {
+				marginY: { max, min },
+				items,
+				sortedItems: [],
+				containerDim,
+				itemDim,
+				radius
+			};
+
+			CircularCarousel.rearrangeItems(0, _state, props);
+			return _state;
+		}
+		return null;
 	}
 
 	onItemPress(index) {
 		let { sortedItems } = this.state;
-		// sortedItems.map(item => console.log(item));
 		if (index === sortedItems[0].index) {
 			this.props.onItemPress(index);
 			return;
@@ -119,15 +121,15 @@ export default class CircularCarousel extends Component {
 				key={index}
 				activeOpacity={1}>
 				<View style={_itemStyle}>
-					{/* <Image
-            pointerEvents="none"
-            style={{
-              width: '100%',
-              height: '100%',
-            }}
-            source={{uri: data.url}}
-            resizeMode="contain"
-          /> */}
+					<Image
+						pointerEvents="none"
+						style={{
+							width: "100%",
+							height: "100%"
+						}}
+						source={{ uri: data.url }}
+						resizeMode="contain"
+					/>
 				</View>
 			</Feedback>
 		);
@@ -141,6 +143,7 @@ export default class CircularCarousel extends Component {
 			...style,
 			...containerDim
 		};
+
 		return (
 			<View style={_style} {...this.panResponder.panHandlers}>
 				{sortedItems.map((data) =>
@@ -162,7 +165,9 @@ export default class CircularCarousel extends Component {
 
 			onPanResponderMove: (evt, gestureState) => {
 				let angle = (gestureState.moveX - gestureState.x0) * PAN_ROTATION_RATE;
-				this.rearrangeItems(angle);
+				let { state, props } = this;
+				let items = CircularCarousel.rearrangeItems(angle, state, props);
+				this.setState({ items });
 			},
 
 			onPanResponderRelease: (e, { vx, vy }) => {
@@ -173,12 +178,8 @@ export default class CircularCarousel extends Component {
 
 	sortItems() {
 		let { items } = this.state;
-
 		let arr = items.map((item, index) => {
-			return {
-				index,
-				depth: item.frame.y
-			};
+			return { index, depth: item.frame.y };
 		});
 
 		arr = arr.sort((a, b) => a.depth < b.depth);
@@ -186,43 +187,33 @@ export default class CircularCarousel extends Component {
 		return arr;
 	}
 
-	rearrangeItems(toAngle) {
-		let { items } = this.state;
-		let { itemDim, containerDim, radius } = this.props;
-		let marginX = (containerDim.width - itemDim.width) / 2;
-		let marginY = itemDim.height / 3;
-
-		items.forEach((item) => {
-			let _angle = (item.angle + toAngle + 360) % 360;
-			let alpha = _angle * (Math.PI / 180); // Radian conversion
-			let x = radius * Math.sin(alpha) + marginX;
-			let y = radius * Math.cos(alpha) * ELEVATION + marginY;
-			item.angle = _angle;
-			item.frame = { ...item.frame, x, y };
-			this.resetItemDimension(item);
-		});
-
-		this.forceUpdate();
-	}
-
 	rotateCarousel(index) {
 		let activeItem = index !== undefined ? index : this.getFrontItem();
 		let _angle = this.state.items[activeItem].angle;
 		_angle = _angle > 180 ? 360 - _angle : -_angle;
 		let sign = Math.sign(_angle);
-		console.log(_angle, index);
 		this.rotateItems(_angle, sign);
 	}
 
 	rotateItems(angleToRotate, sign) {
+		let { state, props } = this;
+		let items;
 		if (Math.abs(angleToRotate) <= ROTATION_RATE) {
-			this.rearrangeItems(angleToRotate);
-			return;
+			items = CircularCarousel.rearrangeItems(angleToRotate, state, props);
+		} else {
+			items = CircularCarousel.rearrangeItems(
+				ROTATION_RATE * sign,
+				state,
+				props
+			);
+			setTimeout(() => {
+				this.rotateItems(
+					(Math.abs(angleToRotate) - ROTATION_RATE) * sign,
+					sign
+				);
+			}, ROTATION_DURATION);
 		}
-		this.rearrangeItems(ROTATION_RATE * sign);
-		setTimeout(() => {
-			this.rotateItems((Math.abs(angleToRotate) - ROTATION_RATE) * sign, sign);
-		}, ROTATION_DURATION);
+		this.setState({ items });
 	}
 
 	getFrontItem() {
@@ -239,11 +230,18 @@ export default class CircularCarousel extends Component {
 		return frontIndex;
 	}
 
-	resetItemDimension(item) {
-		let { width, height } = this.props.itemDim;
+	static scalingCoefficient(item, state) {
+		let { y } = item.frame;
+		let { max, min } = state.marginY;
+		let d = (max - min || Number.MAX_VALUE) * 5;
+		return (y - min) / d + 0.8;
+	}
+
+	static resetItemDimension(item, state, props) {
+		let { width, height } = props.itemDim;
 		let { frame } = item;
 
-		let c = this.scalingCoefficient(item);
+		let c = CircularCarousel.scalingCoefficient(item, state);
 		let w = width * c;
 		let h = height * c;
 		let x = frame.x + (width - w) / 2;
@@ -253,11 +251,23 @@ export default class CircularCarousel extends Component {
 		item.zIndex = 100 * c;
 	}
 
-	scalingCoefficient(item) {
-		let { y } = item.frame;
-		let { max, min } = this.state.marginY;
-		let d = (max - min || Number.MAX_VALUE) * 5;
-		return (y - min) / d + 0.8;
+	static rearrangeItems(toAngle, state, props) {
+		let { items } = state;
+		let { itemDim, containerDim, radius } = props;
+		let marginX = (containerDim.width - itemDim.width) / 2;
+		let marginY = itemDim.height / 3;
+
+		items.forEach((item) => {
+			let _angle = (item.angle + toAngle + 360) % 360;
+			let alpha = _angle * (Math.PI / 180); // Radian conversion
+			let x = radius * Math.sin(alpha) + marginX;
+			let y = radius * Math.cos(alpha) * ELEVATION + marginY;
+
+			item.angle = _angle;
+			item.frame = { ...item.frame, x, y };
+			CircularCarousel.resetItemDimension(item, state, props);
+		});
+		return items;
 	}
 }
 
